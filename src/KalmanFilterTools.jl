@@ -1,5 +1,11 @@
 module KalmanFilterTools
 
-greet() = print("Hello World!")
+using CSV, DataFrames, LinearAlgebra, Distributions
+
+#Datasets
+include("datasets.jl")
+
+#Simulation functions
+include("SimulateKalman.jl")
 
 end # module KalmanFilterTools
