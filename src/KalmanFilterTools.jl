@@ -1,6 +1,6 @@
 module KalmanFilterTools
 
-using CSV, DataFrames, LinearAlgebra, Distributions
+using CSV, DataFrames, LinearAlgebra, Distributions, Random
 
 #Datasets
 include("datasets.jl")
