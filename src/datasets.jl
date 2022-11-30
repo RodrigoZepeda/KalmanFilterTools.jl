@@ -12,7 +12,7 @@ The data was obtained from R's `datasets` package.
 julia> nile()
 100×2 DataFrame
  Row │ Year   Flow  
-     │ Int64  Int64 
+     │ Int32  Int32 
 ─────┼──────────────
    1 │  1871   1120
    2 │  1872   1160
@@ -24,7 +24,7 @@ julia> nile()
 function nile()
     csvname = joinpath(@__DIR__, "..", "data", "nile.csv")
     if isfile(csvname)
-        return CSV.read(csvname, DataFrame)
+        return CSV.read(csvname, DataFrame, header=1, types=Int32);
     end
     error("Unable to locate dataset file nile.csv")
 end

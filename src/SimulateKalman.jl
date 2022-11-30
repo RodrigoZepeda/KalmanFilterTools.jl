@@ -61,7 +61,7 @@ function SimulateKalman(t::Integer,
 
     check_matrix_SimulateKalman(D,q,m,"D");
 
-    return simulate_kalman_steps(t, n, m, q, A, B, C, D, u, x0, DistributionW, DistributionV);
+    return simulate_kalman_steps(t, A, B, C, D, u, x0, DistributionW, DistributionV);
     
 end
 
@@ -94,7 +94,7 @@ function SimulateKalman(t::Integer;
     C     = Random.rand(Normal(0.0, 1.0), q, n);
     D     = Random.rand(Normal(0.0, 1.0), q, m);
 
-    return simulate_kalman_steps(t, n, m, q, A, B, C, D, u, x0, DistributionW, DistributionV);
+    return simulate_kalman_steps(t, A, B, C, D, u, x0, DistributionW, DistributionV);
 
 end
 
@@ -104,9 +104,6 @@ export SimulateKalman
 Function to simulate the KalmanSteps given the initial values and the matrices
 """
 function simulate_kalman_steps(t::Integer,
-    n::Integer,
-    m::Integer,
-    q::Integer,
     A::AbstractMatrix{<:Real}, 
     B::AbstractMatrix{<:Real},
     C::AbstractMatrix{<:Real},
@@ -117,28 +114,84 @@ function simulate_kalman_steps(t::Integer,
     DistributionV::UnivariateDistribution)
 
     #Check the optional vector inputs
-    xmat = zeros(Real, n, t + 1)
-    
-    u         = check_u_input_SimulateKalman(u,m,t);
-    xmat[:,1] = check_x0_SimulateKalman(x0,n);
+    u      = check_u_input_SimulateKalman(u,size(B,2), t);
+    x0init = check_x0_SimulateKalman(x0,size(A,1));
+    xmat, ymat = kalman_steps(x0init, u, A, B, C, D; DistributionW, DistributionV);
+
+    return xmat, ymat, u, A, B, C, D 
+end
+
+function kalman_steps(
+    x0::AbstractVector{<:Real},
+    u::AbstractMatrix{<:Real},
+    A::AbstractMatrix{<:Real}, 
+    B::AbstractMatrix{<:Real},
+    C::AbstractMatrix{<:Real},
+    D::AbstractMatrix{<:Real};
+    DistributionW::Union{UnivariateDistribution,Nothing}=nothing,
+    DistributionV::Union{UnivariateDistribution,Nothing}=nothing)
+
+    #Check the optional vector inputs
+    n         = size(A,1)
+    t         = size(u,2)
+    q         = size(C,1);
+    ymat      = Array{Float64}(undef, q, t)
+    xmat      = Array{Float64}(undef, n, t + 1)
+    xmat[:,1] = x0;
 
     #Initial values for w and 
-    w    = zeros(Real, n)
-    v    = zeros(Real, q)
-    ymat = zeros(Real, q, t)
-
-    for k in 1:t
-        Random.rand!(DistributionW, w);
-        xmat[:,k+1] = A*xmat[:,k] + B*u[:,k] + w;
-
-        Random.rand!(DistributionV, w);
-        ymat[:,k] = C*xmat[:,k] + D*u[:,k] + v;
+    w = zeros(Float64, n, t)
+    if (!isnothing(DistributionW))
+        for k in 1:t
+            Random.rand!(DistributionW, w[:,k])
+        end
     end
 
-    return xmat, ymat
+    v = zeros(Float64, q, t)
+    if (!isnothing(DistributionV))
+        for k in 1:t
+            Random.rand!(DistributionV, v[:,k])
+        end
+    end
+
+    for k in 1:t
+        xmat[:,k + 1], ymat[:,k] = kalman_kth_steps(xmat[:,k], u[:,k], A, B, C, D, w[:,k], v[:,k]);
+    end
+
+    return xmat, ymat;
 end
 
 
+function kalman_kth_steps(
+    x::AbstractVector{<:Real},
+    u::AbstractVector{<:Real},
+    A::AbstractMatrix{<:Real}, 
+    B::AbstractMatrix{<:Real},
+    C::AbstractMatrix{<:Real},
+    D::AbstractMatrix{<:Real},
+    w::AbstractVector{<:Real},
+    v::AbstractVector{<:Real},)
+
+    xnew = A*x + B*u + w;
+    ynew = C*x + D*u + v;
+    
+    return xnew, ynew;
+end
+
+function kalman_kth_steps(
+    x::AbstractVector,
+    u::AbstractVector{<:Real},
+    A::AbstractMatrix{<:Real}, 
+    B::AbstractMatrix{<:Real},
+    C::AbstractMatrix{<:Real},
+    D::AbstractMatrix{<:Real})
+
+    xnew = A*x + B*u;
+    ynew = C*x + D*u;
+    
+    return xnew, ynew;
+end
+export kalman_kth_steps
 
 @doc raw"""
 Function to check the u input of SimulateKalman function
